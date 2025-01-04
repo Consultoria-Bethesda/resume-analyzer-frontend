@@ -1,28 +1,3 @@
-import logo from './logo.svg';
-import './App.css';
-
-function App() {
-  return (
-    <div className="App">
-      <header className="App-header">
-        <img src={logo} className="App-logo" alt="logo" />
-        <p>
-          Edit <code>src/App.js</code> and save to reload.
-        </p>
-        <a
-          className="App-link"
-          href="https://reactjs.org"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Learn React
-        </a>
-      </header>
-    </div>
-  );
-}
-
-export default App;
 import React, { useState } from 'react';
 import axios from 'axios';
 import './App.css';
@@ -110,7 +85,7 @@ function App() {
         <h2>Prepare seus Documentos</h2>
         <p>Antes de começar, tenha em mãos:</p>
         <ul>
-          <li>Seu currículo em formato PDF, DOC ou DOCX</li>
+          <li>Seu currículo em formato PDF ou DOCX</li>
           <li>Links das vagas que deseja se candidatar (até 3 vagas)</li>
           <li>Certifique-se que o currículo esteja atualizado</li>
         </ul>
