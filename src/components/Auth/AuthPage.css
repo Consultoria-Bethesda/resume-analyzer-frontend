@@ -73,3 +73,20 @@
 .legal-links a:hover {
     text-decoration: underline;
 }
+
+.section {
+  text-align: center;
+  padding: 2rem;
+}
+
+.section h2 {
+  margin-bottom: 1rem;
+  font-size: 1.8rem;
+  color: #333;
+}
+
+.section p {
+  margin-bottom: 2rem;
+  color: #666;
+  font-size: 1.1rem;
+}
