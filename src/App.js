@@ -39,13 +39,14 @@ const MainContent = () => {
     console.log('Token encontrado:', token);
     
     if (token) {
-      console.log('Processando token...');
-      localStorage.setItem('authToken', token);
-      login({ token });
-      navigate('/', { replace: true });
-      console.log('Redirecionamento completo');
+        console.log('Processando token...');
+        localStorage.setItem('authToken', token);
+        login({ token });
+        navigate('/', { replace: true });
+        console.log('Redirecionamento completo');
+        checkCredits(); // Adicione esta linha
     }
-  }, [navigate, login]);
+}, [navigate, login]);
 
   useEffect(() => {
     checkCredits();
@@ -53,19 +54,24 @@ const MainContent = () => {
 
   const checkCredits = async () => {
     try {
-      const token = localStorage.getItem('authToken');
-      console.log('Verificando créditos...');
-      const response = await axios.get(`${process.env.REACT_APP_BACKEND_URL}/payment/verify-credits`, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
-      console.log('Resposta da verificação de créditos:', response.data);
-      setCredits(response.data.remaining_analyses);
+        const token = localStorage.getItem('authToken');
+        console.log('Token:', token); // Adicione este log
+        const backendUrl = process.env.REACT_APP_BACKEND_URL;
+        console.log('Backend URL:', backendUrl); // Log adicionado aqui
+        console.log('Verificando créditos...');
+        const response = await axios.get(`${process.env.REACT_APP_BACKEND_URL}/payment/verify-credits`, {
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Accept': 'application/json' // Adicione este header
+            }
+        });
+        console.log('Resposta da verificação de créditos:', response.data);
+        setCredits(response.data.remaining_analyses);
     } catch (err) {
-      console.error('Erro ao verificar créditos:', err);
+        console.error('Erro ao verificar créditos:', err);
+        console.error('Resposta do erro:', err.response?.data); // Adicione este log
     }
-  };
+};
 
   const handleFileChange = (e) => {
     setFile(e.target.files[0]);
