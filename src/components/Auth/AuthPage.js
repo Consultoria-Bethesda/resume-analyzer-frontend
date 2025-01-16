@@ -35,26 +35,14 @@ const AuthPage = () => {
 
   const handleGoogleLogin = () => {
     console.log('Tentando login com Google...');
-    const backendUrl = process.env.REACT_APP_BACKEND_URL;
+    const backendUrl = 'https://api.cvsemfrescura.com.br'; // URL hardcoded para teste
     console.log('Backend URL:', backendUrl);
 
-    // Adicionar logs para debug
-    console.log('Fazendo fetch para:', `${backendUrl}/auth/google/login`);
-
     fetch(`${backendUrl}/auth/google/login`)
-        .then(response => {
-            console.log('Resposta recebida:', response);
-            return response.json();
-        })
+        .then(response => response.json())
         .then(data => {
-            console.log('Dados recebidos:', data);
             console.log('URL de autenticação do Google:', data.url);
-            if (data.url) {
-                console.log('Redirecionando para:', data.url);
-                window.location.href = data.url;
-            } else {
-                console.error('URL não encontrada na resposta');
-            }
+            window.location.href = data.url;
         })
         .catch(error => {
             console.error('Erro ao obter URL de autenticação do Google:', error);
