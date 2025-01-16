@@ -30,6 +30,9 @@ const MainContent = () => {
   const [credits, setCredits] = useState(null);
 
   useEffect(() => {
+    console.log('Variáveis de ambiente:', {
+      REACT_APP_BACKEND_URL: process.env.REACT_APP_BACKEND_URL
+    });
     console.log('AppContent montado');
     console.log('URL atual:', window.location.href);
     console.log('Query params:', window.location.search);
