@@ -34,8 +34,20 @@ const AuthPage = () => {
   }, [navigate, login]);
 
   const handleGoogleLogin = () => {
-    window.location.href = `${process.env.REACT_APP_BACKEND_URL}/auth/google/login`;
-  };
+    console.log('Tentando login com Google...');
+    const backendUrl = 'https://api.cvsemfrescura.com.br'; // URL hardcoded para teste
+    console.log('Backend URL:', backendUrl);
+
+    fetch(`${backendUrl}/auth/google/login`)
+        .then(response => response.json())
+        .then(data => {
+            console.log('URL de autenticação do Google:', data.url);
+            window.location.href = data.url;
+        })
+        .catch(error => {
+            console.error('Erro ao obter URL de autenticação do Google:', error);
+        });
+};
 
   const handleInputChange = (e) => {
     setFormData({
