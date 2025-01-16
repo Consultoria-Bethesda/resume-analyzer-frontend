@@ -1,10 +1,10 @@
-# Build stage
-FROM node:16 as builder
+FROM node:16
 WORKDIR /app
-COPY package*.json ./
-RUN npm install
 COPY . .
+RUN chmod +x /app/node_modules/.bin/react-scripts
+RUN npm install
 RUN npm run build
+CMD ["npm", "start"]
 
 # Production stage
 FROM nginx:alpine
