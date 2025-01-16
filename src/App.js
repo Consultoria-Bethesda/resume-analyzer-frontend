@@ -20,6 +20,9 @@ const ProtectedRoute = ({ children }) => {
 };
 
 const MainContent = () => {
+  console.log('Variáveis de ambiente:', {
+    REACT_APP_BACKEND_URL: process.env.REACT_APP_BACKEND_URL
+  });
   const navigate = useNavigate();
   const { login } = useAuth();
   const [file, setFile] = useState(null);
@@ -30,9 +33,6 @@ const MainContent = () => {
   const [credits, setCredits] = useState(null);
 
   useEffect(() => {
-    console.log('Variáveis de ambiente:', {
-      REACT_APP_BACKEND_URL: process.env.REACT_APP_BACKEND_URL
-    });
     console.log('AppContent montado');
     console.log('URL atual:', window.location.href);
     console.log('Query params:', window.location.search);
