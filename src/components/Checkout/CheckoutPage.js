@@ -9,17 +9,6 @@ const CheckoutPage = () => {
     const navigate = useNavigate();
     const location = useLocation();
 
-    useEffect(() => {
-        // Verificar se é um retorno do Stripe
-        const params = new URLSearchParams(window.location.search);
-        const sessionId = params.get('session_id');
-        
-        if (sessionId) {
-            console.log('Session ID encontrado:', sessionId);
-            verifyPayment(sessionId);
-        }
-    }, [location]);
-
     const verifyPayment = async (sessionId) => {
         try {
             const token = localStorage.getItem('authToken');
@@ -36,7 +25,6 @@ const CheckoutPage = () => {
             console.log('Resposta da verificação:', response.data);
             
             if (response.data.status === 'success') {
-                // Redirecionar para a página principal e forçar atualização
                 navigate('/', { 
                     replace: true, 
                     state: { 
@@ -50,6 +38,16 @@ const CheckoutPage = () => {
             setError('Erro ao verificar pagamento');
         }
     };
+
+    useEffect(() => {
+        const params = new URLSearchParams(window.location.search);
+        const sessionId = params.get('session_id');
+        
+        if (sessionId) {
+            console.log('Session ID encontrado:', sessionId);
+            verifyPayment(sessionId);
+        }
+    }, [location, navigate, verifyPayment]);
 
     const handleCheckout = async () => {
         setLoading(true);
@@ -80,7 +78,7 @@ const CheckoutPage = () => {
         <div className="container">
             <div className="header">
                 <img src="/img/logo.jpg" alt="RH Super Sincero Logo" />
-                <h1>RH Super Sincero</h1>
+                <h1>CV Sem Frescura</h1>
                 <button onClick={() => navigate('/')} className="back-button">
                     Voltar
                 </button>
