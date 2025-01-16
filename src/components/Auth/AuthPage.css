@@ -1,0 +1,75 @@
+.login-section {
+    text-align: center;
+    padding: 20px;
+    max-width: 600px;
+    margin: 0 auto;
+  }
+  
+  .auth-buttons {
+    margin: 30px 0;
+  }
+  
+  .login-button {
+    background-color: #4285f4;
+    color: white;
+    border: none;
+    padding: 12px 24px;
+    border-radius: 4px;
+    font-size: 16px;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+    width: 100%;
+    max-width: 300px;
+  }
+  
+  .login-button:hover {
+    background-color: #357abd;
+  }
+  
+  .terms {
+    font-size: 14px;
+    color: #666;
+    margin-top: 20px;
+  }
+  
+  .login-section h2 {
+    color: #333;
+    margin-bottom: 10px;
+  }
+  
+  .login-section p {
+    color: #666;
+    margin-bottom: 20px;
+  }
+  
+  .login-section ul {
+    text-align: left;
+    margin: 20px auto;
+    max-width: 400px;
+  }
+  
+  .login-section ul li {
+    margin: 10px 0;
+    color: #555;
+  }
+  
+  .login-section h3 {
+    color: #333;
+    margin: 30px 0 15px 0;
+  }
+
+  .legal-links {
+    margin-top: 20px;
+    text-align: center;
+    font-size: 14px;
+    color: #666;
+}
+
+.legal-links a {
+    color: #512808;
+    text-decoration: none;
+}
+
+.legal-links a:hover {
+    text-decoration: underline;
+}
