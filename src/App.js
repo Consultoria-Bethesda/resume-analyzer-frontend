@@ -20,6 +20,9 @@ const ProtectedRoute = ({ children }) => {
 };
 
 const MainContent = () => {
+  console.log('Variáveis de ambiente:', {
+    REACT_APP_BACKEND_URL: process.env.REACT_APP_BACKEND_URL
+  });
   const navigate = useNavigate();
   const { login } = useAuth();
   const [file, setFile] = useState(null);
@@ -30,9 +33,6 @@ const MainContent = () => {
   const [credits, setCredits] = useState(null);
 
   useEffect(() => {
-    console.log('Variáveis de ambiente:', {
-      REACT_APP_BACKEND_URL: process.env.REACT_APP_BACKEND_URL
-    });
     console.log('AppContent montado');
     console.log('URL atual:', window.location.href);
     console.log('Query params:', window.location.search);
@@ -58,24 +58,25 @@ const MainContent = () => {
   const checkCredits = async () => {
     try {
         const token = localStorage.getItem('authToken');
-        console.log('Token:', token); // Adicione este log
-        const backendUrl = process.env.REACT_APP_BACKEND_URL;
-        console.log('Backend URL:', backendUrl); // Log adicionado aqui
+        const backendUrl = 'https://api.cvsemfrescura.com.br'; // URL hardcoded temporariamente
+        console.log('Token:', token);
+        console.log('Backend URL:', backendUrl);
         console.log('Verificando créditos...');
-        const response = await axios.get(`${process.env.REACT_APP_BACKEND_URL}/payment/verify-credits`, {
+        
+        const response = await axios.get(`${backendUrl}/payment/verify-credits`, {
             headers: {
                 'Authorization': `Bearer ${token}`,
-                'Accept': 'application/json' // Adicione este header
+                'Accept': 'application/json'
             }
         });
         console.log('Resposta da verificação de créditos:', response.data);
         setCredits(response.data.remaining_analyses);
     } catch (err) {
         console.error('Erro ao verificar créditos:', err);
-        console.error('Resposta do erro:', err.response?.data); // Adicione este log
+        console.error('Resposta do erro:', err.response?.data);
     }
-};
-
+  };
+}
   const handleFileChange = (e) => {
     setFile(e.target.files[0]);
     setError(null);
