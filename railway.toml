@@ -1,4 +1,0 @@
-[build]
-builder = "nodejs"
-buildCommand = "npm install && npm run build"
-startCommand = "npm start"
