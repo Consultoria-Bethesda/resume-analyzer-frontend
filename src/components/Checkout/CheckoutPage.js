@@ -76,6 +76,25 @@ const CheckoutPage = () => {
         }
     };
 
+    const checkCredits = async () => {
+        try {
+            const token = localStorage.getItem('authToken');
+            const response = await axios.get(
+                `${process.env.REACT_APP_BACKEND_URL}/payment/verify-credits`,
+                {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                }
+            );
+            console.log('Créditos atualizados:', response.data);
+            return response.data.remaining_analyses;
+        } catch (err) {
+            console.error('Erro ao verificar créditos:', err);
+            throw err;
+        }
+    };
+
     return (
         <div className="container">
             <div className="header">
@@ -139,6 +158,7 @@ const CheckoutPage = () => {
             </div>
         </div>
     );
+    
 };
 
 export default CheckoutPage;
