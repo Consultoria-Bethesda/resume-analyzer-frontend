@@ -9,10 +9,30 @@ const CheckoutPage = () => {
     const navigate = useNavigate();
     const location = useLocation();
 
+    const checkCredits = async () => {
+        try {
+            const token = localStorage.getItem('authToken');
+            const response = await axios.get(
+                `${process.env.REACT_APP_BACKEND_URL}/payment/verify-credits`,
+                {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                }
+            );
+            console.log('Créditos atualizados:', response.data);
+            return response.data.remaining_analyses;
+        } catch (err) {
+            console.error('Erro ao verificar créditos:', err);
+            throw err;
+        }
+    };
+
     const verifyPayment = async (sessionId) => {
         try {
             const token = localStorage.getItem('authToken');
             console.log('Verificando pagamento...');
+            console.log('Session ID:', sessionId);
             const response = await axios.get(
                 `${process.env.REACT_APP_BACKEND_URL}/payment/verify-payment/${sessionId}`,
                 {
@@ -25,6 +45,10 @@ const CheckoutPage = () => {
             console.log('Resposta da verificação:', response.data);
             
             if (response.data.status === 'success') {
+                // Força uma nova verificação de créditos
+                const creditsResponse = await checkCredits();
+                console.log('Créditos após pagamento:', creditsResponse);
+                
                 navigate('/', { 
                     replace: true, 
                     state: { 
@@ -47,12 +71,12 @@ const CheckoutPage = () => {
             console.log('Session ID encontrado:', sessionId);
             verifyPayment(sessionId);
         }
-    }, [location, navigate, verifyPayment]);
+    }, [location, navigate]);
 
     const handleCheckout = async () => {
         setLoading(true);
         setError(null);
-    
+
         try {
             const token = localStorage.getItem('authToken');
             const response = await axios.post(
@@ -66,7 +90,7 @@ const CheckoutPage = () => {
                     }
                 }
             );
-    
+
             window.location.href = response.data.checkout_url;
         } catch (err) {
             console.error('Erro ao iniciar checkout:', err);
@@ -76,30 +100,11 @@ const CheckoutPage = () => {
         }
     };
 
-    const checkCredits = async () => {
-        try {
-            const token = localStorage.getItem('authToken');
-            const response = await axios.get(
-                `${process.env.REACT_APP_BACKEND_URL}/payment/verify-credits`,
-                {
-                    headers: {
-                        'Authorization': `Bearer ${token}`
-                    }
-                }
-            );
-            console.log('Créditos atualizados:', response.data);
-            return response.data.remaining_analyses;
-        } catch (err) {
-            console.error('Erro ao verificar créditos:', err);
-            throw err;
-        }
-    };
-
     return (
         <div className="container">
             <div className="header">
                 <img src="/img/logo.jpg" alt="RH Super Sincero Logo" />
-                <h1>CV Sem Frescura</h1>
+                <h1>RH Sem Frescura</h1>
                 <button onClick={() => navigate('/')} className="back-button">
                     Voltar
                 </button>
@@ -158,7 +163,6 @@ const CheckoutPage = () => {
             </div>
         </div>
     );
-    
 };
 
 export default CheckoutPage;

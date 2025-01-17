@@ -3,7 +3,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate, useLocat
 import AuthPage from './components/Auth/AuthPage';
 import CheckoutPage from './components/Checkout/CheckoutPage';
 import { AuthProvider, useAuth } from './services/auth';
-import axiosInstance from './axiosInstance';
+import axios from 'axios';
 import './App.css';
 import TermsOfService from './components/Legal/TermsOfService';
 import PrivacyPolicy from './components/Legal/PrivacyPolicy';
@@ -51,8 +51,34 @@ const MainContent = () => {
   }, [navigate, login]);
 
   useEffect(() => {
-    checkCredits();
-  }, []);
+    const forceCheckCredits = async () => {
+      try {
+        const token = localStorage.getItem('authToken');
+        if (!token) {
+          console.log('Token não encontrado, redirecionando para login');
+          navigate('/login');
+          return;
+        }
+
+        const response = await axios.get(`${process.env.REACT_APP_BACKEND_URL}/payment/verify-credits`, {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+        console.log('Resposta da verificação de créditos:', response.data);
+        setCredits(response.data.remaining_analyses);
+      } catch (err) {
+        console.error('Erro ao verificar créditos:', err);
+        if (err.response?.status === 401) {
+          console.log('Token inválido, redirecionando para login');
+          localStorage.removeItem('authToken');
+          navigate('/login');
+        }
+      }
+    };
+
+    forceCheckCredits();
+  }, [navigate]);
 
   const checkCredits = async () => {
     try {
