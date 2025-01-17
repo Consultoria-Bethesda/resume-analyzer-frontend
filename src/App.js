@@ -56,24 +56,32 @@ const MainContent = () => {
 
   const checkCredits = async () => {
     try {
-      const token = localStorage.getItem('authToken');
-      console.log('Token:', token);
-      console.log('Backend URL:', process.env.REACT_APP_BACKEND_URL);
-      console.log('Verificando créditos...');
-      
-      const response = await axios.get(`${process.env.REACT_APP_BACKEND_URL}/payment/verify-credits`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Accept': 'application/json'
+        const token = localStorage.getItem('authToken');
+        if (!token) {
+            console.error('Token não encontrado');
+            navigate('/login');
+            return;
         }
-      });
-      console.log('Resposta da verificação de créditos:', response.data);
-      setCredits(response.data.remaining_analyses);
+        
+        console.log('Token:', token);
+        console.log('Backend URL:', process.env.REACT_APP_BACKEND_URL);
+        console.log('Verificando créditos...');
+        
+        const response = await axios.get(`${process.env.REACT_APP_BACKEND_URL}/payment/verify-credits`, {
+            headers: {
+                'Authorization': `Bearer ${token}`
+            }
+        });
+        console.log('Resposta da verificação de créditos:', response.data);
+        setCredits(response.data.remaining_analyses);
     } catch (err) {
-      console.error('Erro ao verificar créditos:', err);
-      console.error('Resposta do erro:', err.response?.data);
+        console.error('Erro ao verificar créditos:', err);
+        if (err.response?.status === 401) {
+            localStorage.removeItem('authToken');
+            navigate('/login');
+        }
     }
-  };
+};
 
   const handleFileChange = (e) => {
     setFile(e.target.files[0]);
