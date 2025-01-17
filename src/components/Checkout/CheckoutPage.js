@@ -52,19 +52,21 @@ const CheckoutPage = () => {
     const handleCheckout = async () => {
         setLoading(true);
         setError(null);
-
+    
         try {
             const token = localStorage.getItem('authToken');
             const response = await axios.post(
                 `${process.env.REACT_APP_BACKEND_URL}/payment/create-checkout-session`,
-                {},
+                {
+                    payment_method_types: ['card', 'boleto']
+                },
                 {
                     headers: {
                         'Authorization': `Bearer ${token}`
                     }
                 }
             );
-
+    
             window.location.href = response.data.checkout_url;
         } catch (err) {
             console.error('Erro ao iniciar checkout:', err);
