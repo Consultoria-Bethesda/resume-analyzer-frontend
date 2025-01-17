@@ -28,6 +28,50 @@ const CheckoutPage = () => {
         }
     };
 
+    const verifyPendingPayments = async () => {
+        try {
+            const token = localStorage.getItem('authToken');
+            console.log('Verificando pagamentos pendentes...');
+            const response = await axios.get(
+                `${process.env.REACT_APP_BACKEND_URL}/payment/verify-pending-payments`,
+                {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                }
+            );
+            
+            console.log('Resposta da verificação de pagamentos pendentes:', response.data);
+            
+            // Força uma nova verificação de créditos após verificar pagamentos pendentes
+            const creditsResponse = await checkCredits();
+            console.log('Créditos após verificação:', creditsResponse);
+            
+            return creditsResponse;
+        } catch (err) {
+            console.error('Erro ao verificar pagamentos pendentes:', err);
+            throw err;
+        }
+    };
+    
+    // Adicione ao useEffect existente
+    useEffect(() => {
+        const verifyAllPayments = async () => {
+            const params = new URLSearchParams(window.location.search);
+            const sessionId = params.get('session_id');
+            
+            if (sessionId) {
+                console.log('Session ID encontrado:', sessionId);
+                await verifyPayment(sessionId);
+            } else {
+                // Verifica pagamentos pendentes ao carregar a página
+                await verifyPendingPayments();
+            }
+        };
+    
+        verifyAllPayments();
+    }, [location, navigate]);
+
     const verifyPayment = async (sessionId) => {
         try {
             const token = localStorage.getItem('authToken');
