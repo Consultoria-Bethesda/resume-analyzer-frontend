@@ -42,14 +42,13 @@ const MainContent = () => {
     console.log('Token encontrado:', token);
     
     if (token) {
-        console.log('Processando token...');
-        localStorage.setItem('authToken', token);
-        login({ token });
-        navigate('/', { replace: true });
-        console.log('Redirecionamento completo');
-        checkCredits(); // Adicione esta linha
+      console.log('Processando token...');
+      localStorage.setItem('authToken', token);
+      login({ token });
+      navigate('/', { replace: true });
+      console.log('Redirecionamento completo');
     }
-}, [navigate, login]);
+  }, [navigate, login]);
 
   useEffect(() => {
     checkCredits();
@@ -57,26 +56,25 @@ const MainContent = () => {
 
   const checkCredits = async () => {
     try {
-        const token = localStorage.getItem('authToken');
-        const backendUrl = 'https://api.cvsemfrescura.com.br'; // URL hardcoded temporariamente
-        console.log('Token:', token);
-        console.log('Backend URL:', backendUrl);
-        console.log('Verificando créditos...');
-        
-        const response = await axios.get(`${backendUrl}/payment/verify-credits`, {
-            headers: {
-                'Authorization': `Bearer ${token}`,
-                'Accept': 'application/json'
-            }
-        });
-        console.log('Resposta da verificação de créditos:', response.data);
-        setCredits(response.data.remaining_analyses);
+      const token = localStorage.getItem('authToken');
+      console.log('Token:', token);
+      console.log('Backend URL:', process.env.REACT_APP_BACKEND_URL);
+      console.log('Verificando créditos...');
+      
+      const response = await axios.get(`${process.env.REACT_APP_BACKEND_URL}/payment/verify-credits`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Accept': 'application/json'
+        }
+      });
+      console.log('Resposta da verificação de créditos:', response.data);
+      setCredits(response.data.remaining_analyses);
     } catch (err) {
-        console.error('Erro ao verificar créditos:', err);
-        console.error('Resposta do erro:', err.response?.data);
+      console.error('Erro ao verificar créditos:', err);
+      console.error('Resposta do erro:', err.response?.data);
     }
   };
-}
+
   const handleFileChange = (e) => {
     setFile(e.target.files[0]);
     setError(null);
