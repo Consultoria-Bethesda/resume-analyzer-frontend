@@ -1,0 +1,4 @@
+[build]
+builder = "NODEJS"
+buildCommand = "npm install && npm run build"
+startCommand = "npm start"
