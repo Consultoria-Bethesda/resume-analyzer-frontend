@@ -3,7 +3,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate, useLocat
 import AuthPage from './components/Auth/AuthPage';
 import CheckoutPage from './components/Checkout/CheckoutPage';
 import { AuthProvider, useAuth } from './services/auth';
-import axios from 'axios';
+import axiosInstance from './axiosInstance';
 import './App.css';
 import TermsOfService from './components/Legal/TermsOfService';
 import PrivacyPolicy from './components/Legal/PrivacyPolicy';
@@ -67,11 +67,7 @@ const MainContent = () => {
         console.log('Backend URL:', process.env.REACT_APP_BACKEND_URL);
         console.log('Verificando créditos...');
         
-        const response = await axios.get(`${process.env.REACT_APP_BACKEND_URL}/payment/verify-credits`, {
-            headers: {
-                'Authorization': `Bearer ${token}`
-            }
-        });
+        const response = await axiosInstance.get('/payment/verify-credits');
         console.log('Resposta da verificação de créditos:', response.data);
         setCredits(response.data.remaining_analyses);
     } catch (err) {
