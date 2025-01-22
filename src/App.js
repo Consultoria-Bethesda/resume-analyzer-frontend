@@ -45,96 +45,46 @@ const MainContent = () => {
   const [analysis, setAnalysis] = useState(null);
   const [credits, setCredits] = useState(null);
   
-  const isInitializedRef = useRef(false);
-  const checkCreditsTimeoutRef = useRef(null);
-
-  const checkCredits = useCallback(async () => {
+  // Função simplificada para verificar créditos
+  const checkCredits = async () => {
     try {
       const token = sessionStorage.getItem('authToken');
-      if (!token) {
-        console.log('Token não encontrado, redirecionando para login');
-        navigate('/login');
-        return;
-      }
+      if (!token) return;
 
-      console.log('Verificando créditos com token:', token.substring(0, 10) + '...');
       const response = await axios.get(
         `${process.env.REACT_APP_BACKEND_URL}/payment/verify-credits`,
         {
-          headers: {
-            'Authorization': `Bearer ${token}`
-          }
+          headers: { 'Authorization': `Bearer ${token}` }
         }
       );
       
-      console.log('Resposta da verificação de créditos:', response.data);
       setCredits(response.data.remaining_analyses);
     } catch (err) {
-      console.error('Erro ao verificar créditos:', err);
       if (err.response?.status === 401) {
         sessionStorage.removeItem('authToken');
         navigate('/login');
       }
     }
-  }, [navigate]);
+  };
 
-  useEffect(() => {
-    if (!isInitializedRef.current) {
-      const token = sessionStorage.getItem('authToken');
-      if (token) {
-        login({ token });
-        checkCredits();
-      }
-      isInitializedRef.current = true;
-    }
-
-    return () => {
-      if (checkCreditsTimeoutRef.current) {
-        clearTimeout(checkCreditsTimeoutRef.current);
-      }
-    };
-  }, [login, checkCredits]);
-
-  // Adicionar verificação de créditos após login com Google
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const token = params.get('token');
-    
-    if (token) {
-      console.log('Token encontrado na URL, configurando...');
-      sessionStorage.setItem('authToken', token);
-      login({ token });
-      
-      // Adicionar um pequeno delay para garantir que o token foi configurado
-      setTimeout(() => {
-        console.log('Verificando créditos após login com Google...');
-        checkCredits();
-      }, 1000);
-      
-      navigate('/', { replace: true });
-    }
-  }, [navigate, login, checkCredits]);
-
-  // Verificar créditos periodicamente
-  useEffect(() => {
-    const interval = setInterval(() => {
-      const token = sessionStorage.getItem('authToken');
-      if (token) {
-        checkCredits();
-      }
-    }, 30000); // Verificar a cada 30 segundos
-
-    return () => clearInterval(interval);
-  }, [checkCredits]);
-
-  // Verificar créditos na montagem inicial
+  // Efeito único para verificação inicial após login
   useEffect(() => {
     const token = sessionStorage.getItem('authToken');
+    const params = new URLSearchParams(window.location.search);
+    const tokenFromUrl = params.get('token');
+
     if (token) {
-      console.log('Verificando créditos na montagem inicial...');
+      login({ token });
       checkCredits();
     }
-  }, [checkCredits]);
+
+    if (tokenFromUrl) {
+      sessionStorage.setItem('authToken', tokenFromUrl);
+      login({ token: tokenFromUrl });
+      checkCredits();
+      navigate('/', { replace: true });
+    }
+  }, [login, navigate]);
 
   const handleFileChange = (e) => {
     setFile(e.target.files[0]);
@@ -166,10 +116,8 @@ const MainContent = () => {
       return;
     }
 
-    // Limpar links vazios
     const validLinks = jobLinks.filter(link => link && link.trim());
 
-    // Validar links de vagas
     if (validLinks.length === 0) {
       setError('Por favor, adicione pelo menos um link de vaga para análise.');
       return;
@@ -181,28 +129,31 @@ const MainContent = () => {
 
     const formData = new FormData();
     formData.append('file', file);
-    validLinks.forEach((link, index) => {
-      formData.append(`job_links`, link);
+    validLinks.forEach(link => {
+      formData.append('job_links', link);
     });
     
     try {
       const token = sessionStorage.getItem('authToken');
-      const response = await axios.post(`${process.env.REACT_APP_BACKEND_URL}/cv/analyze`, formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-          'Authorization': `Bearer ${token}`
+      const response = await axios.post(
+        `${process.env.REACT_APP_BACKEND_URL}/cv/analyze`, 
+        formData,
+        {
+          headers: {
+            'Content-Type': 'multipart/form-data',
+            'Authorization': `Bearer ${token}`
+          }
         }
-      });
+      );
 
       if (response.data) {
         setAnalysis(response.data);
-        setTimeout(() => checkCredits(), 500);
+        // Verifica créditos apenas após análise bem-sucedida
+        await checkCredits();
         resetForm();
-      } else {
-        setError('Resposta vazia do servidor');
       }
     } catch (err) {
-      console.error('Erro detalhado:', err.response?.data || err.message);
+      console.error('Erro:', err.response?.data || err.message);
       
       if (err.response?.status === 402) {
         setCredits(0);
