@@ -544,13 +544,47 @@ p {
   font-size: 16px;
   cursor: pointer;
   transition: background-color 0.3s;
+  width: 200px; /* Largura fixa para melhor apresentação */
 }
 
 .new-analysis-button:hover {
   background-color: #3e1f06;
 }
 
-.new-analysis-button:disabled {
-  background-color: #cccccc;
+form button[type="submit"] {
+  opacity: 1;
+  transition: opacity 0.3s;
+}
+
+form button[type="submit"]:disabled {
+  opacity: 0.6;
   cursor: not-allowed;
+}
+
+.analysis-section {
+  margin-top: 30px;
+  padding: 20px;
+  background-color: #f9f9f9;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.success-message {
+  background-color: #4CAF50;
+  color: white;
+  padding: 15px;
+  text-align: center;
+  position: fixed;
+  top: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  border-radius: 4px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+  z-index: 1000;
+  animation: fadeIn 0.3s ease-in;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translate(-50%, -20px); }
+  to { opacity: 1; transform: translate(-50%, 0); }
 }

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
 import AuthPage from './components/Auth/AuthPage';
 import CheckoutPage from './components/Checkout/CheckoutPage';
@@ -7,12 +7,28 @@ import axios from 'axios';
 import './App.css';
 import TermsOfService from './components/Legal/TermsOfService';
 import PrivacyPolicy from './components/Legal/PrivacyPolicy';
+import VerifyEmail from './components/Auth/VerifyEmail';
 
 const ProtectedRoute = ({ children }) => {
-  const token = localStorage.getItem('authToken');
+  const token = sessionStorage.getItem('authToken');
   const location = useLocation();
+  const navigate = useNavigate();
+  const { login } = useAuth();
   
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const tokenFromUrl = params.get('token');
+    
+    if (tokenFromUrl) {
+      console.log('Token encontrado na URL do ProtectedRoute');
+      sessionStorage.setItem('authToken', tokenFromUrl);
+      login({ token: tokenFromUrl });
+      navigate(location.pathname, { replace: true });
+    }
+  }, [location.search, navigate, login]);
+
   if (!token && !location.search.includes('token=')) {
+    console.log('Nenhum token encontrado, redirecionando para login');
     return <Navigate to="/login" />;
   }
   
@@ -20,9 +36,6 @@ const ProtectedRoute = ({ children }) => {
 };
 
 const MainContent = () => {
-  console.log('Variáveis de ambiente:', {
-    REACT_APP_BACKEND_URL: process.env.REACT_APP_BACKEND_URL
-  });
   const navigate = useNavigate();
   const { login } = useAuth();
   const [file, setFile] = useState(null);
@@ -31,79 +44,97 @@ const MainContent = () => {
   const [error, setError] = useState(null);
   const [analysis, setAnalysis] = useState(null);
   const [credits, setCredits] = useState(null);
+  
+  const isInitializedRef = useRef(false);
+  const checkCreditsTimeoutRef = useRef(null);
 
-  useEffect(() => {
-    console.log('AppContent montado');
-    console.log('URL atual:', window.location.href);
-    console.log('Query params:', window.location.search);
-    
-    const params = new URLSearchParams(window.location.search);
-    const token = params.get('token');
-    console.log('Token encontrado:', token);
-    
-    if (token) {
-      console.log('Processando token...');
-      localStorage.setItem('authToken', token);
-      login({ token });
-      navigate('/', { replace: true });
-      console.log('Redirecionamento completo');
-    }
-  }, [navigate, login]);
+  const checkCredits = useCallback(async () => {
+    try {
+      const token = sessionStorage.getItem('authToken');
+      if (!token) {
+        console.log('Token não encontrado, redirecionando para login');
+        navigate('/login');
+        return;
+      }
 
-  useEffect(() => {
-    const forceCheckCredits = async () => {
-      try {
-        const token = localStorage.getItem('authToken');
-        if (!token) {
-          console.log('Token não encontrado, redirecionando para login');
-          navigate('/login');
-          return;
-        }
-
-        const response = await axios.get(`${process.env.REACT_APP_BACKEND_URL}/payment/verify-credits`, {
+      console.log('Verificando créditos com token:', token.substring(0, 10) + '...');
+      const response = await axios.get(
+        `${process.env.REACT_APP_BACKEND_URL}/payment/verify-credits`,
+        {
           headers: {
             'Authorization': `Bearer ${token}`
           }
-        });
-        console.log('Resposta da verificação de créditos:', response.data);
-        setCredits(response.data.remaining_analyses);
-      } catch (err) {
-        console.error('Erro ao verificar créditos:', err);
-        if (err.response?.status === 401) {
-          console.log('Token inválido, redirecionando para login');
-          localStorage.removeItem('authToken');
-          navigate('/login');
         }
+      );
+      
+      console.log('Resposta da verificação de créditos:', response.data);
+      setCredits(response.data.remaining_analyses);
+    } catch (err) {
+      console.error('Erro ao verificar créditos:', err);
+      if (err.response?.status === 401) {
+        sessionStorage.removeItem('authToken');
+        navigate('/login');
       }
-    };
-
-    forceCheckCredits();
+    }
   }, [navigate]);
 
-  const checkCredits = async () => {
-    try {
-        const token = localStorage.getItem('authToken');
-        if (!token) {
-            console.error('Token não encontrado');
-            navigate('/login');
-            return;
-        }
-        
-        console.log('Token:', token);
-        console.log('Backend URL:', process.env.REACT_APP_BACKEND_URL);
-        console.log('Verificando créditos...');
-        
-        const response = await axiosInstance.get('/payment/verify-credits');
-        console.log('Resposta da verificação de créditos:', response.data);
-        setCredits(response.data.remaining_analyses);
-    } catch (err) {
-        console.error('Erro ao verificar créditos:', err);
-        if (err.response?.status === 401) {
-            localStorage.removeItem('authToken');
-            navigate('/login');
-        }
+  useEffect(() => {
+    if (!isInitializedRef.current) {
+      const token = sessionStorage.getItem('authToken');
+      if (token) {
+        login({ token });
+        checkCredits();
+      }
+      isInitializedRef.current = true;
     }
-};
+
+    return () => {
+      if (checkCreditsTimeoutRef.current) {
+        clearTimeout(checkCreditsTimeoutRef.current);
+      }
+    };
+  }, [login, checkCredits]);
+
+  // Adicionar verificação de créditos após login com Google
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const token = params.get('token');
+    
+    if (token) {
+      console.log('Token encontrado na URL, configurando...');
+      sessionStorage.setItem('authToken', token);
+      login({ token });
+      
+      // Adicionar um pequeno delay para garantir que o token foi configurado
+      setTimeout(() => {
+        console.log('Verificando créditos após login com Google...');
+        checkCredits();
+      }, 1000);
+      
+      navigate('/', { replace: true });
+    }
+  }, [navigate, login, checkCredits]);
+
+  // Verificar créditos periodicamente
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const token = sessionStorage.getItem('authToken');
+      if (token) {
+        checkCredits();
+      }
+    }, 30000); // Verificar a cada 30 segundos
+
+    return () => clearInterval(interval);
+  }, [checkCredits]);
+
+  // Verificar créditos na montagem inicial
+  useEffect(() => {
+    const token = sessionStorage.getItem('authToken');
+    if (token) {
+      console.log('Verificando créditos na montagem inicial...');
+      checkCredits();
+    }
+  }, [checkCredits]);
 
   const handleFileChange = (e) => {
     setFile(e.target.files[0]);
@@ -124,7 +155,7 @@ const MainContent = () => {
   };
 
   const handleLogout = () => {
-    localStorage.removeItem('authToken');
+    sessionStorage.removeItem('authToken');
     navigate('/login');
   };
 
@@ -155,7 +186,7 @@ const MainContent = () => {
     });
     
     try {
-      const token = localStorage.getItem('authToken');
+      const token = sessionStorage.getItem('authToken');
       const response = await axios.post(`${process.env.REACT_APP_BACKEND_URL}/cv/analyze`, formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
@@ -164,9 +195,9 @@ const MainContent = () => {
       });
 
       if (response.data) {
-        console.log('Resposta do servidor:', response.data);
         setAnalysis(response.data);
-        await checkCredits();
+        setTimeout(() => checkCredits(), 500);
+        resetForm();
       } else {
         setError('Resposta vazia do servidor');
       }
@@ -174,6 +205,7 @@ const MainContent = () => {
       console.error('Erro detalhado:', err.response?.data || err.message);
       
       if (err.response?.status === 402) {
+        setCredits(0);
         setError(
           <div className="credits-error">
             <p>Créditos insuficientes. Por favor, adquira mais créditos.</p>
@@ -191,6 +223,24 @@ const MainContent = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  // Função para resetar o formulário
+  const resetForm = () => {
+    setFile(null);
+    setJobLinks(['']);
+    setError(null);
+    if (document.getElementById('curriculo')) {
+      document.getElementById('curriculo').value = '';
+    }
+  };
+
+  // Função para realizar nova análise
+  const handleNewAnalysis = () => {
+    resetForm();
+    setAnalysis(null);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    window.location.reload(); // Força o refresh da página
   };
 
   const CreditsDisplay = () => (
@@ -295,7 +345,7 @@ const MainContent = () => {
 
               <button 
                 type="submit" 
-                disabled={loading}
+                disabled={loading || !file || !jobLinks.some(link => link.trim())}
               >
                 {loading ? 'Analisando...' : 'Analisar Currículo'}
               </button>
@@ -400,16 +450,7 @@ const MainContent = () => {
               {credits > 0 ? (
                 <button 
                   className="new-analysis-button"
-                  onClick={() => {
-                    setAnalysis(null);
-                    setFile(null);
-                    setJobLinks(['']);
-                    setError(null);
-                    if (document.getElementById('curriculo')) {
-                      document.getElementById('curriculo').value = '';
-                    }
-                    window.scrollTo({ top: 0, behavior: 'smooth' });
-                  }}
+                  onClick={handleNewAnalysis}
                 >
                   Nova Análise
                 </button>
@@ -433,11 +474,30 @@ const MainContent = () => {
 };
 
 function App() {
+  const location = useLocation();
+  const [message, setMessage] = useState(null);
+
+  useEffect(() => {
+    if (location.state?.paymentSuccess) {
+      setMessage(location.state.message);
+      const timer = setTimeout(() => {
+        setMessage(null);
+      }, 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [location]);
+
   return (
-    <AuthProvider>
-      <Router>
+    <div className="app-container">
+      {message && (
+        <div className="success-message">
+          {message}
+        </div>
+      )}
+      <AuthProvider>
         <Routes>
           <Route path="/login" element={<AuthPage />} />
+          <Route path="/verify-email" element={<VerifyEmail />} />
           <Route path="/terms-of-service" element={<TermsOfService />} />
           <Route path="/privacy-policy" element={<PrivacyPolicy />} />
           <Route 
@@ -458,8 +518,8 @@ function App() {
           />
           <Route path="*" element={<Navigate to="/" />} />
         </Routes>
-      </Router>
-    </AuthProvider>
+      </AuthProvider>
+    </div>
   );
 }
 

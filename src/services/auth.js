@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
 
 const AuthContext = createContext(null);
 
@@ -6,24 +6,32 @@ export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
 
   useEffect(() => {
-    // Verifica se há um token no localStorage ao iniciar
-    const token = localStorage.getItem('authToken');
-    if (token) {
+    const token = sessionStorage.getItem('authToken') || localStorage.getItem('authToken');
+    if (token && !user) {
       setUser({ token });
     }
+  }, []); // Executar apenas na montagem do componente
+
+  const login = useCallback((userData) => {
+    sessionStorage.setItem('authToken', userData.token);
+    localStorage.setItem('authToken', userData.token);
+    setUser(userData);
   }, []);
 
-  const login = (userData) => {
-    setUser(userData);
-  };
-
-  const logout = () => {
+  const logout = useCallback(() => {
+    sessionStorage.removeItem('authToken');
     localStorage.removeItem('authToken');
     setUser(null);
-  };
+  }, []);
+
+  const value = useMemo(() => ({
+    user,
+    login,
+    logout
+  }), [user, login, logout]);
 
   return (
-    <AuthContext.Provider value={{ user, login, logout }}>
+    <AuthContext.Provider value={value}>
       {children}
     </AuthContext.Provider>
   );
