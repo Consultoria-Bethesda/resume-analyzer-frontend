@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../services/auth';
 import { Paper, Typography, Button, TextField, Divider, Box } from '@mui/material';
 import GoogleIcon from '@mui/icons-material/Google';
 
 const AuthPage = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { login } = useAuth();
   const [isRegistering, setIsRegistering] = useState(false);
   const [formData, setFormData] = useState({
@@ -18,28 +19,59 @@ const AuthPage = () => {
   const [successMessage, setSuccessMessage] = useState(null);
 
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const token = params.get('token');
+    // Verifica se já existe um token válido
+    const token = sessionStorage.getItem('authToken') || localStorage.getItem('authToken');
     if (token) {
-      console.log('Token recebido na AuthPage:', token.substring(0, 10) + '...');
-      sessionStorage.setItem('authToken', token);
-      localStorage.setItem('authToken', token); // Backup em localStorage
-      login({ token });
+      console.log('Token existente encontrado, redirecionando...');
+      navigate('/', { replace: true });
+      return;
+    }
+
+    // Verifica token na URL
+    const params = new URLSearchParams(location.search);
+    const tokenFromUrl = params.get('token');
+    if (tokenFromUrl) {
+      console.log('Token encontrado na URL, salvando...');
+      sessionStorage.setItem('authToken', tokenFromUrl);
+      localStorage.setItem('authToken', tokenFromUrl);
+      login({ token: tokenFromUrl });
       navigate('/', { replace: true });
     }
-  }, [navigate, login]);
+  }, [navigate, login, location]);
 
   const handleGoogleLogin = async () => {
     try {
-      const response = await fetch(`${process.env.REACT_APP_BACKEND_URL}/auth/google/login`);
+      const backendUrl = process.env.REACT_APP_BACKEND_URL;
+      if (!backendUrl) {
+        throw new Error('REACT_APP_BACKEND_URL não está definido');
+      }
+
+      console.log('Iniciando login com Google...');
+      
+      const response = await fetch(`${backendUrl}/auth/google/login`, {
+        method: 'GET',
+        credentials: 'include',
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error('Falha na autenticação com Google');
+      }
+
       const data = await response.json();
       if (data.url) {
         console.log('Redirecionando para URL do Google:', data.url);
+        sessionStorage.setItem('auth_redirect', location.state?.from || '/');
         window.location.href = data.url;
+      } else {
+        throw new Error('URL de autenticação não recebida');
       }
     } catch (error) {
-      setError('Erro ao conectar com Google');
-      console.error('Erro no login do Google:', error);
+      console.error('Erro no login com Google:', error);
+      setError(`Erro ao conectar com Google: ${error.message}`);
     }
   };
 
@@ -47,11 +79,6 @@ const AuthPage = () => {
     e.preventDefault();
     setError(null);
     setSuccessMessage(null);
-
-    if (isRegistering && formData.password !== formData.confirmPassword) {
-      setError('As senhas não coincidem');
-      return;
-    }
 
     try {
       const endpoint = isRegistering ? '/auth/register' : '/auth/login';
@@ -77,16 +104,7 @@ const AuthPage = () => {
       const data = await response.json();
       
       if (!response.ok) {
-        if (response.status === 503) {
-          throw new Error("Serviço temporariamente indisponível. Por favor, tente novamente em alguns instantes.");
-        } else if (response.status === 500) {
-          throw new Error("Erro interno do servidor. Por favor, tente novamente.");
-        } else if (data.detail === "Por favor, verifique seu email para ativar sua conta") {
-          setError("Sua conta ainda não foi ativada. Por favor, verifique seu email para ativar sua conta.");
-        } else {
-          throw new Error(data.detail || 'Erro na autenticação');
-        }
-        return;
+        throw new Error(data.detail || 'Erro na autenticação');
       }
 
       if (isRegistering) {
@@ -98,11 +116,20 @@ const AuthPage = () => {
           name: ''
         });
       } else {
-        localStorage.setItem('authToken', data.access_token);
-        login({ token: data.access_token });
-        navigate('/');
+        const token = data.access_token;
+        if (!token) {
+          throw new Error('Token não recebido do servidor');
+        }
+        console.log('Token recebido do servidor, salvando...');
+        sessionStorage.setItem('authToken', token);
+        localStorage.setItem('authToken', token);
+        login({ token });
+        
+        const from = location.state?.from || '/';
+        navigate(from, { replace: true });
       }
     } catch (err) {
+      console.error('Erro na autenticação:', err);
       setError(err.message);
     }
   };
