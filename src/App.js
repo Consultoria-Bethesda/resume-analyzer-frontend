@@ -1,82 +1,120 @@
-import React, { useState, useEffect } from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
+import React, { useState, useEffect, useCallback } from 'react';
+import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
 import AuthPage from './components/Auth/AuthPage';
 import CheckoutPage from './components/Checkout/CheckoutPage';
 import { AuthProvider, useAuth } from './services/auth';
+import GoogleCallback from './components/Auth/GoogleCallback';
 import axios from 'axios';
 import './App.css';
 import TermsOfService from './components/Legal/TermsOfService';
 import PrivacyPolicy from './components/Legal/PrivacyPolicy';
+import VerifyEmail from './components/Auth/VerifyEmail';
+import TestAnalysis from './components/TestAnalysis';
 
 const ProtectedRoute = ({ children }) => {
-  const token = localStorage.getItem('authToken');
+  const token = sessionStorage.getItem('authToken') || localStorage.getItem('authToken');
   const location = useLocation();
-  
+  const navigate = useNavigate();
+  const { login } = useAuth();
+
+  useEffect(() => {
+    const checkAuth = async () => {
+      // Verifica se está em processo de autenticação do Google
+      if (location.pathname.includes('/auth/google')) {
+        return;
+      }
+
+      const params = new URLSearchParams(location.search);
+      const tokenFromUrl = params.get('token');
+
+      if (tokenFromUrl) {
+        console.log('Token encontrado na URL em ProtectedRoute');
+        sessionStorage.setItem('authToken', tokenFromUrl);
+        localStorage.setItem('authToken', tokenFromUrl);
+        login({ token: tokenFromUrl });
+        navigate(location.pathname, { replace: true });
+        return;
+      }
+
+      if (!token) {
+        console.log('Token não encontrado, redirecionando para login');
+        navigate('/login', {
+          replace: true,
+          state: { from: location.pathname }
+        });
+      }
+    };
+
+    checkAuth();
+  }, [location, navigate, login, token]);
+
   if (!token && !location.search.includes('token=')) {
-    return <Navigate to="/login" />;
+    return null;
   }
-  
+
   return children;
 };
 
 const MainContent = () => {
-  console.log('Variáveis de ambiente:', {
-    REACT_APP_BACKEND_URL: process.env.REACT_APP_BACKEND_URL
-  });
   const navigate = useNavigate();
-  const { login } = useAuth();
+  const { logout } = useAuth();
   const [file, setFile] = useState(null);
   const [jobLinks, setJobLinks] = useState(['']);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [analysis, setAnalysis] = useState(null);
   const [credits, setCredits] = useState(null);
+  const [isVerifyingCredits, setIsVerifyingCredits] = useState(true);
 
-  useEffect(() => {
-    console.log('AppContent montado');
-    console.log('URL atual:', window.location.href);
-    console.log('Query params:', window.location.search);
-    
-    const params = new URLSearchParams(window.location.search);
-    const token = params.get('token');
-    console.log('Token encontrado:', token);
-    
-    if (token) {
-        console.log('Processando token...');
-        localStorage.setItem('authToken', token);
-        login({ token });
-        navigate('/', { replace: true });
-        console.log('Redirecionamento completo');
-        checkCredits(); // Adicione esta linha
-    }
-}, [navigate, login]);
-
-  useEffect(() => {
-    checkCredits();
-  }, []);
-
-  const checkCredits = async () => {
-    try {
-        const token = localStorage.getItem('authToken');
-        const backendUrl = 'https://api.cvsemfrescura.com.br'; // URL hardcoded temporariamente
-        console.log('Token:', token);
-        console.log('Backend URL:', backendUrl);
-        console.log('Verificando créditos...');
-        
-        const response = await axios.get(`${backendUrl}/payment/verify-credits`, {
-            headers: {
-                'Authorization': `Bearer ${token}`,
-                'Accept': 'application/json'
-            }
-        });
-        console.log('Resposta da verificação de créditos:', response.data);
-        setCredits(response.data.remaining_analyses);
-    } catch (err) {
-        console.error('Erro ao verificar créditos:', err);
-        console.error('Resposta do erro:', err.response?.data);
-    }
+  // Função para realizar nova análise
+  const handleNewAnalysis = () => {
+    resetForm();
+    setAnalysis(null);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    window.location.reload(); // Força o refresh da página
   };
-}
+
+  // Função para verificar créditos
+  const verifyCredits = useCallback(async () => {
+    try {
+      const token = sessionStorage.getItem('authToken') || localStorage.getItem('authToken');
+      if (!token) {
+        logout();
+        return;
+      }
+
+      const response = await axios.get(
+        `${process.env.REACT_APP_BACKEND_URL}/payment/verify-credits`,
+        {
+          headers: { 'Authorization': `Bearer ${token}` }
+        }
+      );
+
+      setCredits(response.data.remaining_analyses);
+      setIsVerifyingCredits(false);
+    } catch (err) {
+      console.error('Erro ao verificar créditos:', err);
+      if (err.response?.status === 401) {
+        logout();
+      }
+      setIsVerifyingCredits(false);
+    }
+  }, [logout]);
+
+  useEffect(() => {
+    verifyCredits();
+  }, [verifyCredits]);
+
+  // Renderização condicional enquanto verifica créditos
+  if (isVerifyingCredits) {
+    return (
+      <div className="loading-container">
+        <div className="loading-spinner"></div>
+        <p>Verificando suas informações...</p>
+      </div>
+    );
+  }
+
   const handleFileChange = (e) => {
     setFile(e.target.files[0]);
     setError(null);
@@ -96,72 +134,64 @@ const MainContent = () => {
   };
 
   const handleLogout = () => {
-    localStorage.removeItem('authToken');
-    navigate('/login');
+    navigate('/logout');
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!file) {
-      setError('Por favor, selecione um currículo.');
-      return;
-    }
-
-    // Limpar links vazios
-    const validLinks = jobLinks.filter(link => link && link.trim());
-
-    // Validar links de vagas
-    if (validLinks.length === 0) {
-      setError('Por favor, adicione pelo menos um link de vaga para análise.');
-      return;
-    }
-
     setLoading(true);
     setError(null);
-    setAnalysis(null);
 
-    const formData = new FormData();
-    formData.append('file', file);
-    validLinks.forEach((link, index) => {
-      formData.append(`job_links`, link);
-    });
-    
+    if (!file) {
+      setError('Por favor, selecione um arquivo PDF.');
+      setLoading(false);
+      return;
+    }
+
     try {
-      const token = localStorage.getItem('authToken');
-      const response = await axios.post(`${process.env.REACT_APP_BACKEND_URL}/cv/analyze`, formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-          'Authorization': `Bearer ${token}`
-        }
+      const token = localStorage.getItem('authToken') || sessionStorage.getItem('authToken');
+      if (!token) {
+        throw new Error('Token de autenticação não encontrado');
+      }
+
+      const cleanToken = token.startsWith('Bearer ') ? token.split(' ')[1] : token;
+      const formData = new FormData();
+      formData.append('file', file); // Usando a variável file ao invés de selectedFile
+      jobLinks.forEach(link => {
+        if (link) formData.append('job_links', link);
       });
 
+      const response = await axios.post(
+        `${process.env.REACT_APP_BACKEND_URL}/cv/analyze`,
+        formData,
+        {
+          headers: {
+            'Authorization': `Bearer ${cleanToken}`,
+            'Content-Type': 'multipart/form-data'
+          }
+        }
+      );
+
       if (response.data) {
-        console.log('Resposta do servidor:', response.data);
         setAnalysis(response.data);
-        await checkCredits();
-      } else {
-        setError('Resposta vazia do servidor');
+        await verifyCredits();
+        resetForm();
       }
     } catch (err) {
-      console.error('Erro detalhado:', err.response?.data || err.message);
-      
-      if (err.response?.status === 402) {
-        setError(
-          <div className="credits-error">
-            <p>Créditos insuficientes. Por favor, adquira mais créditos.</p>
-            <button 
-              onClick={() => navigate('/checkout')}
-              className="buy-credits-button"
-            >
-              Comprar Créditos
-            </button>
-          </div>
-        );
-      } else {
-        setError(`Erro ao analisar o currículo: ${err.response?.data?.detail || err.message}`);
-      }
+      console.error('Erro:', err.response?.data || err.message);
+      handleAnalysisError(err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Função para resetar o formulário
+  const resetForm = () => {
+    setFile(null);
+    setJobLinks(['']);
+    setError(null);
+    if (document.getElementById('curriculo')) {
+      document.getElementById('curriculo').value = '';
     }
   };
 
@@ -171,7 +201,7 @@ const MainContent = () => {
         <>
           <p>Créditos disponíveis: {credits}</p>
           {credits === 0 && (
-            <button 
+            <button
               onClick={() => navigate('/checkout')}
               className="buy-credits-button"
             >
@@ -185,6 +215,21 @@ const MainContent = () => {
     </div>
   );
 
+  // Função para tratar erros de análise
+  const handleAnalysisError = (err) => {
+    if (err.response?.status === 401) {
+      setError('Sessão expirada. Por favor, faça login novamente.');
+      logout();
+    } else if (err.response?.status === 402) {
+      setError('Créditos insuficientes. Por favor, adquira mais créditos.');
+      navigate('/checkout');
+    } else if (err.response?.data?.error) {
+      setError(err.response.data.error);
+    } else {
+      setError('Erro ao analisar currículo. Por favor, tente novamente.');
+    }
+  };
+
   return (
     <div className="container">
       <div className="header">
@@ -194,245 +239,131 @@ const MainContent = () => {
       </div>
 
       <CreditsDisplay />
+      
+      {analysis ? (
+        <>
+          <TestAnalysis analysis={analysis} />
+          <div className="new-analysis-container">
+            <button onClick={handleNewAnalysis} className="new-analysis-button">
+              Nova Análise
+            </button>
+          </div>
+        </>
+      ) : (
+        <>
+          <div className="section">
+            <h2>Bem-vindo ao CV Sem Frescura</h2>
+            <p>Nossa plataforma foi desenvolvida para ajudar você a otimizar seu currículo para vagas específicas.</p>
+          </div>
 
-      <div className="section">
-        <h2>Bem-vindo ao CV Sem Frescura</h2>
-        <p>Nossa plataforma foi desenvolvida para ajudar você a otimizar seu currículo para vagas específicas.</p>
-        <ul>
-          <li>Analisamos seu currículo em relação às vagas desejadas</li>
-          <li>Fornecemos feedback detalhado e personalizado</li>
-          <li>Sugerimos melhorias específicas</li>
-          <li>Aumentamos suas chances de ser selecionado</li>
-        </ul>
-      </div>
+          <div className="section">
+            <h3>Como funciona:</h3>
+            <ol>
+              <li>Faça upload do seu currículo em formato PDF</li>
+              <li>Adicione até 2 links de vagas que deseja se candidatar</li>
+              <li>Nossa IA analisará seu currículo em relação às vagas</li>
+              <li>Receba recomendações personalizadas para aumentar suas chances</li>
+            </ol>
+          </div>
 
-      <div className="section">
-        <h2>Prepare seus Documentos</h2>
-        <p>Antes de começar, tenha em mãos:</p>
-        <ul>
-          <li>Seu currículo em formato PDF ou DOCX</li>
-          <li>Links das vagas que deseja se candidatar (até 2 vagas por análise)</li>
-          <li>Cada pacote de créditos permite 4 análises (total de 8 vagas)</li>
-          <li>Certifique-se que o currículo esteja atualizado</li>
-        </ul>
-        <p>Como usar:</p>
-        <ul>
-          <li>Faça upload do seu currículo</li>
-          <li>Cole os links das vagas desejadas</li>
-          <li>Clique em "Analisar Currículo"</li>
-          <li>Aguarde a análise completa</li>
-          <li>Receba recomendações personalizadas</li>
-        </ul>
-      </div>
-
-      <div className="section">
-        <h2>Envie seu Currículo</h2>
-        {typeof credits === 'number' && credits >= 0 ? (
-          credits > 0 ? (
+          <div className="section">
             <form onSubmit={handleSubmit}>
               <div className="form-group">
-                <label htmlFor="curriculo">Currículo (PDF ou DOCX)</label>
-                <input 
-                  type="file" 
-                  id="curriculo" 
+                <label htmlFor="curriculo">Upload do Currículo (PDF):</label>
+                <input
+                  type="file"
+                  id="curriculo"
+                  accept=".pdf"
                   onChange={handleFileChange}
-                  accept=".pdf,.doc,.docx"
+                  className="file-input"
                 />
               </div>
 
               {jobLinks.map((link, index) => (
-                <div className="form-group" key={index}>
-                  <label htmlFor={`link-vaga-${index}`}>
-                    Link da Vaga {index + 1}
+                <div key={index} className="form-group">
+                  <label htmlFor={`jobLink${index}`}>
+                    Link da Vaga {index + 1}:
                   </label>
-                  <input 
-                    type="text" 
-                    id={`link-vaga-${index}`}
+                  <input
+                    type="url"
+                    id={`jobLink${index}`}
                     value={link}
                     onChange={(e) => handleLinkChange(index, e.target.value)}
-                    placeholder="https://..."
+                    placeholder="Cole aqui o link da vaga"
+                    className="url-input"
                   />
                 </div>
               ))}
 
               {jobLinks.length < 2 && (
-                <button 
+                <button
                   type="button"
-                  className="add-link-btn"
                   onClick={addLink}
+                  className="add-link-button"
                 >
-                  + Adicionar Outra Vaga
+                  + Adicionar outro link de vaga
                 </button>
               )}
 
-              <button 
-                type="submit" 
-                disabled={loading}
+              {error && <div className="error-message">{error}</div>}
+
+              <button
+                type="submit"
+                disabled={loading || credits === 0}
+                className="submit-button"
               >
                 {loading ? 'Analisando...' : 'Analisar Currículo'}
               </button>
             </form>
-          ) : (
-            <div className="no-credits-message">
-              <p>Você precisa de créditos para analisar seu currículo.</p>
-              <button 
-                onClick={() => navigate('/checkout')}
-                className="buy-credits-button"
-              >
-                Comprar Créditos
-              </button>
-            </div>
-          )
-        ) : (
-          <div className="loading-credits">
-            <p>Carregando créditos...</p>
           </div>
-        )}
-
-        {error && (
-          <div className="error-message">
-            <p>{error}</p>
-          </div>
-        )}
-
-        {loading && (
-          <div className="section">
-            <p>Analisando seu currículo... Por favor, aguarde.</p>
-          </div>
-        )}
-
-        {analysis && Object.keys(analysis).length > 0 && (
-          <div className="section">
-            {analysis.introduction && (
-              <div className="analysis-block">
-                <h3>Introdução</h3>
-                <p className="analysis-text">{analysis.introduction}</p>
-              </div>
-            )}
-
-            {analysis.extracted_keywords?.all_keywords?.length > 0 && (
-              <div className="analysis-block">
-                <h3>Palavras-chave Identificadas</h3>
-                <div className="keywords-grid">
-                  {analysis.extracted_keywords.all_keywords.map((keyword, index) => (
-                    <div key={index} className="keyword-item">
-                      {keyword}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {analysis.keywords && (
-              <div className="analysis-block">
-                {analysis.keywords.present?.length > 0 && (
-                  <div className="keywords-section">
-                    <h3>Palavras-chave Presentes</h3>
-                    <ul className="keywords-list">
-                      {analysis.keywords.present.map((keyword, index) => (
-                        <li key={index} className="keyword-item">{keyword}</li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-
-                {analysis.keywords.missing?.length > 0 && (
-                  <div className="keywords-section">
-                    <h3>Palavras-chave Ausentes</h3>
-                    <ul className="keywords-list">
-                      {analysis.keywords.missing.map((keyword, index) => (
-                        <li key={index} className="keyword-item">{keyword}</li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {analysis.recommendations?.length > 0 && (
-              <div className="analysis-block">
-                <h3>Recomendações</h3>
-                <ol className="recommendations-list">
-                  {analysis.recommendations.map((recommendation, index) => (
-                    <li key={index} className="recommendation-item">{recommendation}</li>
-                  ))}
-                </ol>
-              </div>
-            )}
-
-            {analysis.conclusion && (
-              <div className="analysis-block">
-                <h3>Conclusão</h3>
-                <p className="analysis-text">{analysis.conclusion}</p>
-              </div>
-            )}
-
-            {/* Botão Nova Análise */}
-            <div className="new-analysis-section">
-              {credits > 0 ? (
-                <button 
-                  className="new-analysis-button"
-                  onClick={() => {
-                    setAnalysis(null);
-                    setFile(null);
-                    setJobLinks(['']);
-                    setError(null);
-                    if (document.getElementById('curriculo')) {
-                      document.getElementById('curriculo').value = '';
-                    }
-                    window.scrollTo({ top: 0, behavior: 'smooth' });
-                  }}
-                >
-                  Nova Análise
-                </button>
-              ) : (
-                <div className="no-credits-message">
-                  <p>Você precisa de créditos para fazer uma nova análise.</p>
-                  <button 
-                    onClick={() => navigate('/checkout')}
-                    className="buy-credits-button"
-                  >
-                    Comprar Créditos
-                  </button>
-                </div>
-              )}
-            </div>
-          </div>
-        )}
-      </div>
+        </>
+      )}
     </div>
   );
 };
 
 function App() {
   return (
-    <AuthProvider>
-      <Router>
+    <div className="app-container">
+      <AuthProvider>
         <Routes>
           <Route path="/login" element={<AuthPage />} />
+          <Route path="/auth/google/callback" element={<GoogleCallback />} />
+          <Route path="/logout" element={<LogoutHandler />} />
+          <Route path="/verify-email" element={<VerifyEmail />} />
           <Route path="/terms-of-service" element={<TermsOfService />} />
           <Route path="/privacy-policy" element={<PrivacyPolicy />} />
-          <Route 
-            path="/checkout" 
+          <Route
+            path="/checkout"
             element={
               <ProtectedRoute>
                 <CheckoutPage />
               </ProtectedRoute>
-            } 
+            }
           />
-          <Route 
-            path="/" 
+          <Route
+            path="/"
             element={
               <ProtectedRoute>
                 <MainContent />
               </ProtectedRoute>
-            } 
+            }
           />
           <Route path="*" element={<Navigate to="/" />} />
         </Routes>
-      </Router>
-    </AuthProvider>
+      </AuthProvider>
+    </div>
   );
 }
 
 export default App;
+
+const LogoutHandler = () => {
+  const { logout } = useAuth();
+  
+  useEffect(() => {
+    logout();
+  }, [logout]);
+  
+  return null;
+};

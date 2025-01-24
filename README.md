@@ -1,70 +1,97 @@
-# Getting Started with Create React App
+# Resume Analyzer
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+Sistema de análise de currículos usando IA para comparar com descrições de vagas.
 
-## Available Scripts
+## Estrutura do Projeto
 
-In the project directory, you can run:
+- `resume-analyzer-backend/`: API FastAPI com análise de currículos
+- `resume-analyzer-frontend/`: Interface React para upload e visualização
 
-### `npm start`
+## Requisitos
 
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in your browser.
+- Python 3.9+
+- Node.js 22+
+- PostgreSQL 13+
+- Docker e Docker Compose (opcional)
 
-The page will reload when you make changes.\
-You may also see any lint errors in the console.
+## Configuração
 
-### `npm test`
+### Com Docker
 
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+1. Clone o repositório:
+```bash
+git clone https://github.com/Consultoria-Bethesda/resume-analyzer-frontend.git
+cd resume-analyzer-frontend
+```
 
-### `npm run build`
+2. Configure as variáveis de ambiente:
+```bash
+cp .env.example .env
+```
 
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
+3. Inicie os containers:
+```bash
+docker-compose up --build
+```
 
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
+### Sem Docker
 
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
+#### Backend
 
-### `npm run eject`
+1. Entre no diretório do backend:
+```bash
+cd resume-analyzer-backend
+```
 
-**Note: this is a one-way operation. Once you `eject`, you can't go back!**
+2. Crie e ative o ambiente virtual:
+```bash
+python -m venv venv
+source venv/bin/activate  # Linux/Mac
+.\venv\Scripts\activate   # Windows
+```
 
-If you aren't satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
+3. Instale as dependências:
+```bash
+pip install -r requirements.txt
+```
 
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you're on your own.
+4. Configure as variáveis de ambiente e inicie:
+```bash
+cp .env.example .env
+uvicorn app.main:app --reload
+```
 
-You don't have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn't feel obligated to use this feature. However we understand that this tool wouldn't be useful if you couldn't customize it when you are ready for it.
+#### Frontend
 
-## Learn More
+1. Entre no diretório do frontend:
+```bash
+cd resume-analyzer-frontend
+```
 
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
+2. Instale as dependências:
+```bash
+npm install
+```
 
-To learn React, check out the [React documentation](https://reactjs.org/).
+3. Inicie o servidor de desenvolvimento:
+```bash
+npm start
+```
 
-### Code Splitting
+## Uso
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/code-splitting](https://facebook.github.io/create-react-app/docs/code-splitting)
+1. Acesse o frontend em `http://localhost:8080`
+2. API disponível em `http://localhost:8000`
+3. Documentação da API em `http://localhost:8000/docs`
 
-### Analyzing the Bundle Size
+## Contribuição
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size](https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size)
+1. Faça um fork do projeto
+2. Crie uma branch para sua feature (`git checkout -b feature/AmazingFeature`)
+3. Commit suas mudanças (`git commit -m 'Add some AmazingFeature'`)
+4. Push para a branch (`git push origin feature/AmazingFeature`)
+5. Abra um Pull Request
 
-### Making a Progressive Web App
+## Licença
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app](https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app)
-
-### Advanced Configuration
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/advanced-configuration](https://facebook.github.io/create-react-app/docs/advanced-configuration)
-
-### Deployment
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/deployment](https://facebook.github.io/create-react-app/docs/deployment)
-
-### `npm run build` fails to minify
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify](https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify)
+Este projeto está sob a licença MIT - veja o arquivo [LICENSE](LICENSE) para detalhes.

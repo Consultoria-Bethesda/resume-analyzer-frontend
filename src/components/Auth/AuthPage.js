@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../services/auth';
-import './AuthPage.css';
+import { Paper, Typography, Button, TextField, Divider, Box } from '@mui/material';
+import GoogleIcon from '@mui/icons-material/Google';
 
 const AuthPage = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { login } = useAuth();
   const [isRegistering, setIsRegistering] = useState(false);
   const [formData, setFormData] = useState({
@@ -14,56 +16,69 @@ const AuthPage = () => {
     name: ''
   });
   const [error, setError] = useState(null);
+  const [successMessage, setSuccessMessage] = useState(null);
 
   useEffect(() => {
-    console.log('AuthPage montado');
-    console.log('URL atual:', window.location.href);
-    console.log('Query params:', window.location.search);
-    
-    const params = new URLSearchParams(window.location.search);
-    const token = params.get('token');
-    console.log('Token encontrado:', token);
-    
+    // Verifica se já existe um token válido
+    const token = sessionStorage.getItem('authToken') || localStorage.getItem('authToken');
     if (token) {
-      console.log('Processando token...');
-      localStorage.setItem('authToken', token);
-      login({ token });
+      console.log('Token existente encontrado, redirecionando...');
       navigate('/', { replace: true });
-      console.log('Redirecionamento completo');
+      return;
     }
-  }, [navigate, login]);
 
-  const handleGoogleLogin = () => {
-    console.log('Tentando login com Google...');
-    const backendUrl = 'https://api.cvsemfrescura.com.br'; // URL hardcoded para teste
-    console.log('Backend URL:', backendUrl);
+    // Verifica token na URL
+    const params = new URLSearchParams(location.search);
+    const tokenFromUrl = params.get('token');
+    if (tokenFromUrl) {
+      console.log('Token encontrado na URL, salvando...');
+      sessionStorage.setItem('authToken', tokenFromUrl);
+      localStorage.setItem('authToken', tokenFromUrl);
+      login({ token: tokenFromUrl });
+      navigate('/', { replace: true });
+    }
+  }, [navigate, login, location]);
 
-    fetch(`${backendUrl}/auth/google/login`)
-        .then(response => response.json())
-        .then(data => {
-            console.log('URL de autenticação do Google:', data.url);
-            window.location.href = data.url;
-        })
-        .catch(error => {
-            console.error('Erro ao obter URL de autenticação do Google:', error);
-        });
-};
+  const handleGoogleLogin = async () => {
+    try {
+      const backendUrl = process.env.REACT_APP_BACKEND_URL;
+      if (!backendUrl) {
+        throw new Error('REACT_APP_BACKEND_URL não está definido');
+      }
 
-  const handleInputChange = (e) => {
-    setFormData({
-      ...formData,
-      [e.target.name]: e.target.value
-    });
+      console.log('Iniciando login com Google...');
+      
+      const response = await fetch(`${backendUrl}/auth/google/login`, {
+        method: 'GET',
+        credentials: 'include',
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error('Falha na autenticação com Google');
+      }
+
+      const data = await response.json();
+      if (data.url) {
+        console.log('Redirecionando para URL do Google:', data.url);
+        sessionStorage.setItem('auth_redirect', location.state?.from || '/');
+        window.location.href = data.url;
+      } else {
+        throw new Error('URL de autenticação não recebida');
+      }
+    } catch (error) {
+      console.error('Erro no login com Google:', error);
+      setError(`Erro ao conectar com Google: ${error.message}`);
+    }
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError(null);
-
-    if (isRegistering && formData.password !== formData.confirmPassword) {
-      setError('As senhas não coincidem');
-      return;
-    }
+    setSuccessMessage(null);
 
     try {
       const endpoint = isRegistering ? '/auth/register' : '/auth/login';
@@ -72,142 +87,211 @@ const AuthPage = () => {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(isRegistering ? {
-          email: formData.email,
-          password: formData.password,
-          name: formData.name
-        } : {
-          email: formData.email,
-          password: formData.password
-        }),
+        body: JSON.stringify(
+          isRegistering 
+            ? {
+                email: formData.email,
+                password: formData.password,
+                name: formData.name
+              }
+            : {
+                email: formData.email,
+                password: formData.password
+              }
+        ),
       });
 
+      const data = await response.json();
+      
       if (!response.ok) {
-        const data = await response.json();
         throw new Error(data.detail || 'Erro na autenticação');
       }
 
-      const data = await response.json();
-      localStorage.setItem('authToken', data.access_token);
-      login({ token: data.access_token });
-      navigate('/');
+      if (isRegistering) {
+        setSuccessMessage(data.message);
+        setFormData({
+          email: '',
+          password: '',
+          confirmPassword: '',
+          name: ''
+        });
+      } else {
+        const token = data.access_token;
+        if (!token) {
+          throw new Error('Token não recebido do servidor');
+        }
+        console.log('Token recebido do servidor, salvando...');
+        sessionStorage.setItem('authToken', token);
+        localStorage.setItem('authToken', token);
+        login({ token });
+        
+        const from = location.state?.from || '/';
+        navigate(from, { replace: true });
+      }
     } catch (err) {
+      console.error('Erro na autenticação:', err);
       setError(err.message);
     }
   };
 
   return (
-    <div className="container">
-      <div className="header">
-        <img src="/img/logo.jpg" alt="RH Super Sincero Logo" />
-        <h1>CV Sem Frescura</h1>
-      </div>
+    <Box
+      sx={{
+        display: 'flex',
+        flexDirection: 'column',
+        justifyContent: 'center',
+        alignItems: 'center',
+        minHeight: '100vh',
+        backgroundColor: '#f5f5f5',
+        padding: 2
+      }}
+    >
+      <Box
+        component="img"
+        src="/img/logo.jpg"
+        alt="RH Super Sincero Logo"
+        sx={{
+          width: 200,
+          height: 'auto',
+          marginBottom: 2
+        }}
+      />
+      
+      <Paper
+        elevation={3}
+        sx={{
+          padding: 4,
+          width: '100%',
+          maxWidth: 400,
+          backgroundColor: 'white',
+          borderRadius: 2
+        }}
+      >
+        <Typography 
+          variant="h4" 
+          component="h1" 
+          align="center" 
+          gutterBottom
+          sx={{ 
+            fontWeight: 'bold',
+            color: '#512808', // Alterado para o marrom da identidade visual
+            marginBottom: 3
+          }}
+        >
+          CV Sem Frescura
+        </Typography>
 
-      <div className="section">
-        <h2>Bem-vindo ao CV Sem Frescura</h2>
-        <p>Faça login para começar a análise do seu currículo</p>
-        
-        <div className="auth-buttons">
-          <button 
-            className="login-button google-button"
-            onClick={handleGoogleLogin}
-          >
-            <img src="/img/google-icon.png" alt="Google Icon" className="google-icon" />
-            Continuar com Google
-          </button>
-        </div>
+        <Typography 
+          variant="h6" 
+          component="h2" 
+          align="center" 
+          gutterBottom
+          sx={{ marginBottom: 3 }}
+        >
+          {isRegistering ? 'Criar Nova Conta' : 'Acessar Minha Conta'}
+        </Typography>
 
-        <div className="auth-separator">
-          <span>ou</span>
-        </div>
+        <Button
+          fullWidth
+          variant="outlined"
+          startIcon={<GoogleIcon />}
+          onClick={handleGoogleLogin}
+          sx={{
+            marginBottom: 2,
+            color: 'rgba(0, 0, 0, 0.87)',
+            borderColor: 'rgba(0, 0, 0, 0.23)',
+            '&:hover': {
+              backgroundColor: 'rgba(0, 0, 0, 0.04)',
+              borderColor: 'rgba(0, 0, 0, 0.23)'
+            }
+          }}
+        >
+          Continuar com Google
+        </Button>
 
-        <form onSubmit={handleSubmit} className="auth-form">
-          {error && <div className="error-message">{error}</div>}
+        <Divider sx={{ my: 2 }}>ou</Divider>
+
+        <form onSubmit={handleSubmit}>
+          {isRegistering && (
+            <TextField
+              fullWidth
+              label="Nome"
+              variant="outlined"
+              margin="normal"
+              value={formData.name}
+              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+              required
+            />
+          )}
+          
+          <TextField
+            fullWidth
+            label="Email"
+            variant="outlined"
+            margin="normal"
+            type="email"
+            value={formData.email}
+            onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+            required
+          />
+          
+          <TextField
+            fullWidth
+            label="Senha"
+            variant="outlined"
+            margin="normal"
+            type="password"
+            value={formData.password}
+            onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+            required
+          />
           
           {isRegistering && (
-            <div className="form-group">
-              <label htmlFor="name">Nome completo</label>
-              <input
-                type="text"
-                id="name"
-                name="name"
-                value={formData.name}
-                onChange={handleInputChange}
-                required
-              />
-            </div>
-          )}
-
-          <div className="form-group">
-            <label htmlFor="email">Email</label>
-            <input
-              type="email"
-              id="email"
-              name="email"
-              value={formData.email}
-              onChange={handleInputChange}
-              required
-            />
-          </div>
-
-          <div className="form-group">
-            <label htmlFor="password">Senha</label>
-            <input
+            <TextField
+              fullWidth
+              label="Confirmar Senha"
+              variant="outlined"
+              margin="normal"
               type="password"
-              id="password"
-              name="password"
-              value={formData.password}
-              onChange={handleInputChange}
+              value={formData.confirmPassword}
+              onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
               required
             />
-          </div>
-
-          {isRegistering && (
-            <div className="form-group">
-              <label htmlFor="confirmPassword">Confirmar senha</label>
-              <input
-                type="password"
-                id="confirmPassword"
-                name="confirmPassword"
-                value={formData.confirmPassword}
-                onChange={handleInputChange}
-                required
-              />
-            </div>
           )}
 
-          <button type="submit" className="submit-button">
-            {isRegistering ? 'Criar conta' : 'Entrar'}
-          </button>
+          {successMessage && (
+            <Typography color="success" align="center" sx={{ mt: 2 }}>
+              {successMessage}
+            </Typography>
+          )}
+
+          {error && (
+            <Typography color="error" align="center" sx={{ mt: 2 }}>
+              {error}
+            </Typography>
+          )}
+
+          <Button
+            type="submit"
+            fullWidth
+            variant="contained"
+            sx={{ mt: 3, mb: 2 }}
+          >
+            {isRegistering ? 'Criar Conta' : 'Entrar'}
+          </Button>
         </form>
 
-        <p className="auth-switch">
-          {isRegistering ? (
-            <>
-              Já tem uma conta?{' '}
-              <button onClick={() => setIsRegistering(false)}>
-                Faça login
-              </button>
-            </>
-          ) : (
-            <>
-              Não tem uma conta?{' '}
-              <button onClick={() => setIsRegistering(true)}>
-                Cadastre-se
-              </button>
-            </>
-          )}
-        </p>
-
-        <div className="legal-links">
-          <p>
-            Ao fazer login, você concorda com nossos{' '}
-            <a href="/terms-of-service">Termos de Serviço</a> e{' '}
-            <a href="/privacy-policy">Política de Privacidade</a>.
-          </p>
-        </div>
-      </div>
-    </div>
+        <Button
+          fullWidth
+          onClick={() => setIsRegistering(!isRegistering)}
+          sx={{ textTransform: 'none' }}
+        >
+          {isRegistering
+            ? 'Já tem uma conta? Entre aqui'
+            : 'Não tem uma conta? Registre-se'}
+        </Button>
+      </Paper>
+    </Box>
   );
 };
 
